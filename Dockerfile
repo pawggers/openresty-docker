@@ -15,13 +15,23 @@ WORKDIR /tmp
 
 # Add build dependencies
 RUN apk add --no-cache --virtual .build-deps \
+    autoconf \
+    automake \
+    byacc \
     curl-dev \
+    flex \
+    g++ \
+    gcc \
     geoip-dev \
     git \
     libc-dev \
     libmaxminddb-dev \
+    libstdc++ \
+    libtool \
     libxml2-dev \
+    linux-headers \
     lmdb-dev \
+    make \
     openssl-dev \
     pcre-dev \
     yajl-dev \
