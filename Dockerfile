@@ -8,6 +8,7 @@ FROM openresty/openresty:${RESTY_VERSION}-alpine-fat
 ARG GEO_DB_RELEASE=2021-03
 ARG MODSEC_BRANCH=v3.0.4
 ARG OWASP_BRANCH=v3.3/master
+ARG RESTY_VERSION
 
 LABEL maintainer="Alyx Wolcott <alyx@sourcenova.net>"
 
