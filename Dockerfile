@@ -36,6 +36,16 @@ RUN apk add --no-cache --virtual .build-deps \
     pcre-dev \
     yajl-dev \
     zlib-dev
+# Clone ModSecurity nginx connector, GeoIP2, Brotli.
+RUN git clone -b master --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git && \
+    git clone -b master --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
+    git clone -b master --depth 1 https://github.com/google/ngx_brotli.git && \
+    git clone -b ${OWASP_BRANCH} --depth 1 https://github.com/coreruleset/coreruleset.git /usr/local/owasp-modsecurity-crs && \
+    curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz && \
+    tar xzf openresty-${RESTY_VERSION}.tar.gz && \
+    mkdir -p /etc/nginx/geoip && \
+    curl https://download.db-ip.com/free/dbip-city-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-city-lite.mmdb && \
+    curl https://download.db-ip.com/free/dbip-country-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-country-lite.mmdb
 
 # Clone and compile ModSecurity
 RUN git clone -b ${MODSEC_BRANCH} --depth 1 https://github.com/SpiderLabs/ModSecurity && \
@@ -49,17 +59,6 @@ RUN git clone -b ${MODSEC_BRANCH} --depth 1 https://github.com/SpiderLabs/ModSec
     rm -rf /tmp/ModSecurity \
         /usr/local/modsecurity/lib/libmodsecurity.a \
         /usr/local/modsecurity/lib/libmodsecurity.la
-
-# Clone ModSecurity nginx connector, GeoIP2, Brotli.
-RUN git clone -b master --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git && \
-    git clone -b master --depth 1 https://github.com/leev/ngx_http_geoip2_module.git && \
-    git clone -b master --depth 1 https://github.com/google/ngx_brotli.git && \
-    git clone -b ${OWASP_BRANCH} --depth 1 https://github.com/coreruleset/coreruleset.git /usr/local/owasp-modsecurity-crs && \
-    curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz && \
-    tar xzf openresty-${RESTY_VERSION}.tar.gz && \
-    mkdir -p /etc/nginx/geoip && \
-    curl https://download.db-ip.com/free/dbip-city-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-city-lite.mmdb && \
-    curl https://download.db-ip.com/free/dbip-country-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-country-lite.mmdb
 
 # Install the modules and clean up
 RUN (cd /tmp/openresty-${RESTY_VERSION} && \
