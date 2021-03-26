@@ -3,7 +3,7 @@
 
 ARG RESTY_VERSION="1.19.3.1"
 
-FROM openresty/openresty:alpine-fat:${RESTY_VERSION}
+FROM openresty/openresty:${RESTY_VERSION}-alpine-fat
 
 ARG GEO_DB_RELEASE=2021-03
 ARG MODSEC_BRANCH=v3.0.4
