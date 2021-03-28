@@ -59,14 +59,12 @@ ARG _RESTY_CONFIG_DEPS="--with-pcre \
     --with-ld-opt='-L/usr/local/openresty/pcre/lib -L/usr/local/openresty/openssl/lib -Wl,-rpath,/usr/local/openresty/pcre/lib:/usr/local/openresty/openssl/lib' \
     "
 
-# [WORKDIR /tmp]
 RUN cd /tmp; \
     # Add Novae repo for ModSecurity
     curl https://distfiles.novae.tel/apk/alyx-605e73f3.rsa.pub > /etc/apk/keys/alyx-605e73f3.rsa.pub; \
     echo "https://distfiles.novae.tel/apk/v3.13/main" >> /etc/apk/repositories; \
-    apk update; \
     # Update base system
-    apk upgrade; \
+    apk upgrade --no-cache; \
     # Install dependencies
     ## Add runtime dependencies
     apk add --no-cache \
@@ -125,7 +123,6 @@ RUN cd /tmp; \
     curl https://download.db-ip.com/free/dbip-city-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-city-lite.mmdb; \
     curl https://download.db-ip.com/free/dbip-country-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-country-lite.mmdb; \
     # Build modules
-    # [WORKDIR /tmp/openresty-${RESTY_VERSION}]
     cd /tmp/openresty-${RESTY_VERSION}; \
     eval ./configure \
             ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} \
@@ -136,7 +133,6 @@ RUN cd /tmp; \
     make; \
     # build/nginx-1.19.3/objs
     # Install modules
-    # [WORKDIR /tmp/openresty-${RESTY_VERSION}/build/nginx-${NGINX_VERSION}]
     cd /tmp/openresty-${RESTY_VERSION}/build/nginx-${NGINX_VERSION}; \
     cp ./objs/ngx_http_modsecurity_module.so \
        ./objs/ngx_http_geoip2_module.so \
@@ -144,12 +140,10 @@ RUN cd /tmp; \
        ./objs/ngx_http_brotli_static_module.so \
        /usr/local/openresty/nginx/modules/; \
     # Cleanup
-    # [WORKDIR /tmp]
     cd /tmp; \
     rm -fr /tmp/*; \
     apk del .build-deps; \
     # Setup logging redirections
-    # (moved to later) mkdir -p /var/run/openresty; \
     ln -sf /dev/stdout /usr/local/openresty/nginx/logs/access.log; \
     ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log; \
     # Copy default configuration files
