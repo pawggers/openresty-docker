@@ -59,19 +59,15 @@ ARG _RESTY_CONFIG_DEPS="--with-pcre \
     --with-ld-opt='-L/usr/local/openresty/pcre/lib -L/usr/local/openresty/openssl/lib -Wl,-rpath,/usr/local/openresty/pcre/lib:/usr/local/openresty/openssl/lib' \
     "
 
-WORKDIR /tmp
-
-# Add Novae repo for ModSecurity
-RUN curl https://distfiles.novae.tel/apk/alyx-605e73f3.rsa.pub > /etc/apk/keys/alyx-605e73f3.rsa.pub
-RUN echo "https://distfiles.novae.tel/apk/v3.13/main" >> /etc/apk/repositories
-RUN apk update
-
-# Update base system
-RUN apk upgrade
-
-# Install dependencies
-## Add runtime dependencies
-RUN apk add --no-cache \
+RUN cd /tmp; \
+    # Add Novae repo for ModSecurity
+    curl https://distfiles.novae.tel/apk/alyx-605e73f3.rsa.pub > /etc/apk/keys/alyx-605e73f3.rsa.pub; \
+    echo "https://distfiles.novae.tel/apk/v3.13/main" >> /etc/apk/repositories; \
+    # Update base system
+    apk upgrade --no-cache; \
+    # Install dependencies
+    ## Add runtime dependencies
+    apk add --no-cache \
     gd \
     geoip \
     libmaxminddb \
@@ -83,9 +79,9 @@ RUN apk add --no-cache \
     openssl \
     pcre \
     yajl \
-    zlib
-## Add build dependencies
-RUN apk add --no-cache --virtual .build-deps \
+    zlib; \
+    ## Add build dependencies
+    apk add --no-cache --virtual .build-deps \
     autoconf \
     automake \
     byacc \
@@ -109,58 +105,85 @@ RUN apk add --no-cache --virtual .build-deps \
     openssl-dev \
     pcre-dev \
     yajl-dev \
-    zlib-dev
-
-# Pull in sources
-## ModSecurity nginx connector
-RUN git clone -b master --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git 
-## GeoIP2
-RUN git clone -b master --depth 1 https://github.com/leev/ngx_http_geoip2_module.git
-## Brotli
-RUN git clone -b master --depth 1 https://github.com/google/ngx_brotli.git
-RUN curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz && \
-    tar xzf openresty-${RESTY_VERSION}.tar.gz
-
-# Pull in and prepare data
-## OWASP CRS
-RUN git clone -b ${OWASP_BRANCH} --depth 1 https://github.com/coreruleset/coreruleset.git /usr/local/owasp-modsecurity-crs
-## MaxMind GEOIP
-RUN mkdir -p /etc/nginx/geoip/
-RUN curl https://download.db-ip.com/free/dbip-city-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-city-lite.mmdb
-RUN curl https://download.db-ip.com/free/dbip-country-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-country-lite.mmdb
-
-# Build modules
-WORKDIR /tmp/openresty-${RESTY_VERSION}
-RUN eval ./configure \
+    zlib-dev; \
+    # Pull in sources
+    ## ModSecurity nginx connector
+    git clone -b master --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git; \
+    ## GeoIP2
+    git clone -b master --depth 1 https://github.com/leev/ngx_http_geoip2_module.git; \
+    ## Brotli
+    git clone -b master --depth 1 https://github.com/google/ngx_brotli.git; \
+    curl -fSL https://openresty.org/download/openresty-${RESTY_VERSION}.tar.gz -o openresty-${RESTY_VERSION}.tar.gz && \
+    tar xzf openresty-${RESTY_VERSION}.tar.gz; \
+    # Pull in and prepare data
+    ## OWASP CRS
+    git clone -b ${OWASP_BRANCH} --depth 1 https://github.com/coreruleset/coreruleset.git /usr/local/owasp-modsecurity-crs; \
+    ## MaxMind GEOIP
+    mkdir -p /etc/nginx/geoip/; \
+    curl https://download.db-ip.com/free/dbip-city-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-city-lite.mmdb; \
+    curl https://download.db-ip.com/free/dbip-country-lite-${GEO_DB_RELEASE}.mmdb.gz | gzip -d > /etc/nginx/geoip/dbip-country-lite.mmdb; \
+    # Build modules
+    cd /tmp/openresty-${RESTY_VERSION}; \
+    eval ./configure \
             ${_RESTY_CONFIG_DEPS} ${RESTY_CONFIG_OPTIONS} ${RESTY_CONFIG_OPTIONS_MORE} ${RESTY_LUAJIT_OPTIONS} \
             --with-compat \
             --add-dynamic-module=../ModSecurity-nginx \
             --add-dynamic-module=../ngx_http_geoip2_module \
-            --add-dynamic-module=../ngx_brotli
-RUN make
-# build/nginx-1.19.3/objs
-# Install modules
-WORKDIR /tmp/openresty-${RESTY_VERSION}/build/nginx-${NGINX_VERSION}
-RUN cp ./objs/ngx_http_modsecurity_module.so \
+            --add-dynamic-module=../ngx_brotli; \
+    make; \
+    # build/nginx-1.19.3/objs
+    # Install modules
+    cd /tmp/openresty-${RESTY_VERSION}/build/nginx-${NGINX_VERSION}; \
+    cp ./objs/ngx_http_modsecurity_module.so \
        ./objs/ngx_http_geoip2_module.so \
        ./objs/ngx_http_brotli_filter_module.so \
        ./objs/ngx_http_brotli_static_module.so \
-       /usr/local/openresty/nginx/modules/
+       /usr/local/openresty/nginx/modules/; \
+    # Cleanup
+    cd /tmp; \
+    rm -fr /tmp/*; \
+    apk del .build-deps; \
+    # Setup logging redirections
+    ln -sf /dev/stdout /usr/local/openresty/nginx/logs/access.log; \
+    ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log; \
+    # Copy default configuration files
+    ## Create directories
+    mkdir -p /etc/nginx/modsec; \
+    mkdir -p /etc/nginx/conf.d; \
+    tar zcvf nginx.tar.gz /etc/nginx; \
+    tar zcvf openresty.tar.gz /usr/local/openresty;
 
-# Cleanup
-WORKDIR /tmp
-RUN rm -fr /tmp/*
-RUN apk del .build-deps
+FROM alpine:3.13
 
-# Setup logging redirections
-RUN mkdir -p /var/run/openresty
-RUN ln -sf /dev/stdout /usr/local/openresty/nginx/logs/access.log
-RUN ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log
+RUN apk add --no-cache curl; \
+    # Add Novae repo for ModSecurity
+    curl https://distfiles.novae.tel/apk/alyx-605e73f3.rsa.pub > /etc/apk/keys/alyx-605e73f3.rsa.pub; \
+    echo "https://distfiles.novae.tel/apk/v3.13/main" >> /etc/apk/repositories; \
+    apk upgrade --no-cache; \
+    ## Add runtime dependencies
+    apk add --no-cache \
+    gd \
+    geoip \
+    libmaxminddb \
+    libmodsecurity \
+    libstdc++ \
+    libxml2 \
+    libxslt \
+    lmdb \
+    openssl \
+    pcre \
+    yajl \
+    zlib;
 
-# Copy default configuration files
-## Create directories
-RUN mkdir -p /etc/nginx/modsec
-RUN mkdir -p /etc/nginx/conf.d
+# Copy program (compressed)
+COPY --from=0 /tmp/nginx.tar.gz /
+COPY --from=0 /tmp/openresty.tar.gz /
+
+# Uncompress program
+RUN tar xvf nginx.tar.gz; rm nginx.tar.gz;\
+    tar xvf openresty.tar.gz; rm openresty.tar.gz; \
+    mkdir -p /var/run/openresty;
+
 ## Copy nginx configuration files
 COPY ./conf/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
 COPY ./conf/nginx.vh.default.conf /etc/nginx/conf.d/default.conf
