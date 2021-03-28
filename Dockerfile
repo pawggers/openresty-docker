@@ -149,13 +149,46 @@ RUN cd /tmp; \
     rm -fr /tmp/*; \
     apk del .build-deps; \
     # Setup logging redirections
-    mkdir -p /var/run/openresty; \
+    # (moved to later) mkdir -p /var/run/openresty; \
     ln -sf /dev/stdout /usr/local/openresty/nginx/logs/access.log; \
     ln -sf /dev/stderr /usr/local/openresty/nginx/logs/error.log; \
     # Copy default configuration files
     ## Create directories
     mkdir -p /etc/nginx/modsec; \
-    mkdir -p /etc/nginx/conf.d;
+    mkdir -p /etc/nginx/conf.d; \
+    tar zcvf nginx.tar.gz /etc/nginx; \
+    tar zcvf openresty.tar.gz /usr/local/openresty;
+
+FROM alpine:3.13
+
+RUN apk add --no-cache curl; \
+    # Add Novae repo for ModSecurity
+    curl https://distfiles.novae.tel/apk/alyx-605e73f3.rsa.pub > /etc/apk/keys/alyx-605e73f3.rsa.pub; \
+    echo "https://distfiles.novae.tel/apk/v3.13/main" >> /etc/apk/repositories; \
+    apk upgrade --no-cache; \
+    ## Add runtime dependencies
+    apk add --no-cache \
+    gd \
+    geoip \
+    libmaxminddb \
+    libmodsecurity \
+    libstdc++ \
+    libxml2 \
+    libxslt \
+    lmdb \
+    openssl \
+    pcre \
+    yajl \
+    zlib;
+
+# Copy program (compressed)
+COPY --from=0 /tmp/nginx.tar.gz /
+COPY --from=0 /tmp/openresty.tar.gz /
+
+# Uncompress program
+RUN tar xvf nginx.tar.gz; rm nginx.tar.gz;\
+    tar xvf openresty.tar.gz; rm openresty.tar.gz; \
+    mkdir -p /var/run/openresty;
 
 ## Copy nginx configuration files
 COPY ./conf/nginx.conf /usr/local/openresty/nginx/conf/nginx.conf
